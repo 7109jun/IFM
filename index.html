@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IFM Tag Parser & Media Player</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="h-full bg-slate-950 text-slate-100 flex flex-col">
+
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow-lg shadow-indigo-500/30 flex items-center justify-center">
+                <i class="fa-solid fa-layer-group text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-white">IFM Tag Engine</h1>
+                <p class="text-xs text-slate-400">Lightweight Media Integration Syntax Parser</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button onclick="loadSample('shorts')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium px-3 py-2 rounded-lg transition border border-slate-700">
+                <i class="fa-solid fa-bolt mr-1.5 text-amber-400"></i> Sample Shorts
+            </button>
+            <button onclick="loadSample('mixed')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium px-3 py-2 rounded-lg transition border border-slate-700">
+                <i class="fa-solid fa-photo-film mr-1.5 text-indigo-400"></i> Sample Mixed
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        <!-- Editor Section -->
+        <section class="w-full lg:w-1/2 flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800 bg-slate-900/30">
+            <div class="px-6 py-3 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between">
+                <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center">
+                    <i class="fa-solid fa-code mr-2 text-indigo-400"></i> IFM Markup Editor
+                </span>
+                <span class="text-xs text-slate-500">Syntax: [IFM data="..." set="..."]</span>
+            </div>
+            <div class="flex-1 p-4 flex flex-col">
+                <textarea id="editor" class="w-full flex-1 bg-slate-900/50 text-slate-200 p-4 rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 font-mono text-sm leading-relaxed resize-none shadow-inner" placeholder="Type your IFM markup here..."></textarea>
+            </div>
+            <div class="px-6 pb-4 flex items-center justify-between text-xs text-slate-400">
+                <div class="flex space-x-4">
+                    <span><strong class="text-indigo-400">video</strong>: Sound + Video</span>
+                    <span><strong class="text-indigo-400">audio</strong>: Sound only</span>
+                    <span><strong class="text-indigo-400">mute</strong>: Muted video</span>
+                    <span><strong class="text-indigo-400">image</strong>: Image only</span>
+                </div>
+                <button onclick="clearEditor()" class="text-slate-500 hover:text-slate-300 transition">Clear</button>
+            </div>
+        </section>
+
+        <!-- Preview Section -->
+        <section class="w-full lg:w-1/2 flex flex-col bg-slate-950">
+            <div class="px-6 py-3 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between">
+                <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase flex items-center">
+                    <i class="fa-solid fa-eye mr-2 text-emerald-400"></i> Live Parsed Preview
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span class="w-1.5 h-1.5 mr-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Active Parser
+                </span>
+            </div>
+            <div class="flex-1 p-6 overflow-y-auto">
+                <div id="preview" class="space-y-6 max-w-2xl mx-auto bg-slate-900/40 p-6 rounded-2xl border border-slate-800/80 shadow-2xl min-h-full">
+                    <!-- Parsed content will render here -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // 안전한 유튜브 ID 추출 함수
+        function parseYouTubeId(url) {
+            if (!url) return '';
+            const match = url.match(/(?:shorts\/|youtu\.be\/|v=|embed\/)([^&?\/\s]+)/);
+            if (match && match[1]) return match[1];
+            const parts = url.split('/');
+            const lastPart = parts[parts.length - 1].split('?')[0];
+            if (lastPart.length === 11) return lastPart;
+            return url.trim();
+        }
+
+        // 안정성을 극대화한 IFM 파서 엔진
+        function parseIFMTags(text) {
+            if (!text) return '';
+
+            // 줄단위로 쪼개서 처리하여 태그가 통째로 증발하는 현상 원천 차단
+            const lines = text.split('\n');
+            let finalHtml = '';
+
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+
+                // [IFM ... ] 형태의 태그가 포함되어 있는지 확인
+                if (trimmedLine.startsWith('[IFM') && trimmedLine.endsWith(']')) {
+                    // data 값 추출
+                    let dataVal = '';
+                    const dataMatch1 = trimmedLine.match(/data=["']([^"']+)["']/i);
+                    const dataMatch2 = trimmedLine.match(/data=([^\s\]]+)/i);
+                    if (dataMatch1) dataVal = dataMatch1[1];
+                    else if (dataMatch2) dataVal = dataMatch2[1];
+
+                    // set 값 추출
+                    let setVal = 'video';
+                    const setMatch1 = trimmedLine.match(/set=["']([^"']+)["']/i);
+                    const setMatch2 = trimmedLine.match(/set=([^\s\]]+)/i);
+                    if (setMatch1) setVal = setMatch1[1].toLowerCase();
+                    else if (setMatch2) setVal = setMatch2[1].toLowerCase();
+
+                    if (!dataVal) {
+                        finalHtml += `<div class="p-3 my-2 bg-red-950/50 border border-red-800/50 text-red-300 text-xs rounded-lg">Invalid IFM Tag: ${trimmedLine}</div><br>`;
+                        return;
+                    }
+
+                    // 1. 유튜브 처리
+                    if (dataVal.includes('youtube.com') || dataVal.includes('youtu.be') || dataVal.length === 11) {
+                        const videoId = parseYouTubeId(dataVal);
+                        const isShorts = dataVal.includes('shorts/');
+                        const paddingStyle = isShorts ? 'padding-top: 177.78%; max-width: 360px; margin: 0 auto;' : 'padding-top: 56.25%;';
+
+                        if (setVal === 'video') {
+                            finalHtml += `
+                                <div class="my-4 rounded-xl overflow-hidden border border-slate-800 bg-black shadow-lg">
+                                    <div class="relative w-full" style="${paddingStyle}">
+                                        <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                                    </div>
+                                </div>
+                            `;
+                        } else if (setVal === 'mute') {
+                            finalHtml += `
+                                <div class="my-4 rounded-xl overflow-hidden border border-slate-800 bg-black shadow-lg">
+                                    <div class="relative w-full" style="${paddingStyle}">
+                                        <iframe class="absolute top-0 left-0 w-full h-full" src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&enablejsapi=1" title="YouTube muted player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    } 
+                    // 2. 오디오 처리
+                    else if (setVal === 'audio') {
+                        finalHtml += `
+                            <div class="my-4 p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col space-y-2 shadow-md">
+                                <div class="flex items-center space-x-2 text-xs text-indigo-400 font-medium">
+                                    <i class="fa-solid fa-music"></i> <span>Audio Stream</span>
+                                </div>
+                                <audio controls class="w-full h-10 accent-indigo-500">
+                                    <source src="${dataVal}" type="audio/mpeg">
+                                    Your browser does not support the audio element.
+                                </audio>
+                            </div>
+                        `;
+                    } 
+                    // 3. 이미지 처리
+                    else if (setVal === 'image') {
+                        finalHtml += `
+                            <div class="my-4 rounded-xl overflow-hidden border border-slate-800 bg-slate-900 shadow-md">
+                                <img src="${dataVal}" alt="IFM Image Content" class="w-full h-auto object-cover max-h-[500px]" onerror="this.src='https://placehold.co/600x400/1e293b/94a3b8?text=Image+Load+Error'" />
+                            </div>
+                        `;
+                    } 
+                    // 4. 일반 동영상 처리
+                    else {
+                        if (setVal === 'video') {
+                            finalHtml += `
+                                <div class="my-4 rounded-xl overflow-hidden border border-slate-800 bg-black shadow-lg">
+                                    <video src="${dataVal}" controls class="w-full h-auto max-h-[500px]"></video>
+                                </div>
+                            `;
+                        } else if (setVal === 'mute') {
+                            finalHtml += `
+                                <div class="my-4 rounded-xl overflow-hidden border border-slate-800 bg-black shadow-lg">
+                                    <video src="${dataVal}" autoplay muted loop class="w-full h-auto max-h-[500px]"></video>
+                                </div>
+                            `;
+                        }
+                    }
+                } else {
+                    // 일반 텍스트 라인
+                    finalHtml += (trimmedLine ? trimmedLine : '&nbsp;') + '<br>';
+                }
+            });
+
+            return finalHtml;
+        }
+
+        const editor = document.getElementById('editor');
+        const preview = document.getElementById('preview');
+
+        function updatePreview() {
+            const rawText = editor.value;
+            const processed = parseIFMTags(rawText);
+            preview.innerHTML = processed || '<p class="text-slate-600 text-sm italic">Nothing to preview yet. Enter your IFM tags on the left.</p>';
+        }
+
+        editor.addEventListener('input', updatePreview);
+
+        function loadSample(type) {
+            if (type === 'shorts') {
+                editor.value = `Welcome to IFM Tag Demonstration!\n\nHere is a YouTube Video in normal video mode:\n[IFM data="https://www.youtube.com/watch?v=L_LUpnjgPso" set="video"]\n\nAnd here is a Shorts video in muted background mode:\n[IFM data="https://www.youtube.com/shorts/3225qfbkE8o" set="mute"]`;
+            } else if (type === 'mixed') {
+                editor.value = `Multi-Media Showcase with IFM\n\n1. Background Audio Track:\n[IFM data="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" set="audio"]\n\n2. Featured Image Graphic:\n[IFM data="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop" set="image"]\n\n3. Video Content:\n[IFM data="https://www.youtube.com/watch?v=L_LUpnjgPso" set="video"]`;
+            }
+            updatePreview();
+        }
+
+        function clearEditor() {
+            editor.value = '';
+            updatePreview();
+        }
+
+        window.onload = function() {
+            loadSample('shorts');
+        };
+    </script>
+</body>
+</html>
