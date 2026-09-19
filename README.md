@@ -26,17 +26,3 @@
 | `image` | 이미지 그래픽 출력 | JPG, PNG, WEBP 등 이미지 |
 
 ---
-
-##  사용 예시 (Examples)
-
-### 1. 일반 동영상 재생 (`set="video"`)
-[IFM data="[https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4](https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4)" set="video"]
-
-### 2. 음소거 자동 재생 배경 영상 (`set="mute"`)
-[IFM data="[https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4](https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4)" set="mute"]
-
-### 3. 오디오 스트림 재생 (`set="audio"`)
-[IFM data="[https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3](https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3)" set="audio"]
-
-### 4. 이미지 출력 (`set="image"`)
-[IFM data="[https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000](https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000)" set="image"]
